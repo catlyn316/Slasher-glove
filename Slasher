@@ -13,6 +13,7 @@ local floatingEnabled = false
 local floatingConnection = nil
 local speedConnection = nil
 local fullbrightConnection = nil
+local thirdPersonConnection = nil
 
 -- 修改名稱標籤的函數
 local function changeNametag()
@@ -264,55 +265,10 @@ local function createButton(text, order, parent, spacing)
     return btn
 end
 
--- 創建輸入框樣式
-local function createTextBox(placeholderText, order, parent, spacing)
-    local textBox = Instance.new("TextBox", parent)
-    textBox.Size = UDim2.new(0, 240, 0, 35)
-    textBox.Position = UDim2.new(0.5, -120, 0, 15 + (order - 1) * spacing)
-    textBox.PlaceholderText = placeholderText
-    textBox.Text = ""
-    textBox.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-    textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    textBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
-    textBox.Font = Enum.Font.Gotham
-    textBox.TextSize = 14
-    textBox.BorderSizePixel = 0
-    textBox.ClearTextOnFocus = false
-    
-    -- 添加漸層效果
-    local textBoxGradient = Instance.new("UIGradient", textBox)
-    textBoxGradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 50, 70)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 60))
-    }
-    
-    -- 添加圓角
-    Instance.new("UICorner", textBox).CornerRadius = UDim.new(0, 8)
-    
-    -- 添加描邊
-    local textBoxStroke = Instance.new("UIStroke", textBox)
-    textBoxStroke.Color = Color3.fromRGB(100, 150, 255)
-    textBoxStroke.Thickness = 1
-    textBoxStroke.Transparency = 0.3
-    
-    -- 添加焦點效果
-    textBox.Focused:Connect(function()
-        textBoxStroke.Transparency = 0.1
-        textBoxStroke.Thickness = 2
-    end)
-    
-    textBox.FocusLost:Connect(function()
-        textBoxStroke.Transparency = 0.3
-        textBoxStroke.Thickness = 1
-    end)
-    
-    return textBox
-end
-
 -- 血月之地分區使用 ScrollingFrame
 local BloodMoonScroll = Instance.new("ScrollingFrame", Content)
 BloodMoonScroll.Size = UDim2.new(1, 0, 1, 0)
-BloodMoonScroll.CanvasSize = UDim2.new(0, 0, 0, 350)
+BloodMoonScroll.CanvasSize = UDim2.new(0, 0, 0, 300)
 BloodMoonScroll.ScrollBarThickness = 6
 BloodMoonScroll.BackgroundTransparency = 1
 BloodMoonScroll.Visible = true
@@ -338,46 +294,37 @@ end
 -- 應用到滾動框
 styleScrollFrame(BloodMoonScroll)
 
--- 創建血月之地分區的輸入框和按鈕
-local NameTextBox = createTextBox("輸入玩家名稱", 1, BloodMoonScroll, 50)
-local EnterLabyrinthBtn = createButton("進入迷宮", 2, BloodMoonScroll, 50)
-local RemoveBloodMoonBtn = createButton("刪除血月", 3, BloodMoonScroll, 50)
-local ThirdPersonBtn = createButton("第三人稱", 4, BloodMoonScroll, 50)
-local SpeedBtn = createButton("加速", 5, BloodMoonScroll, 50)
-local FloatBtn = createButton("滯空（躲Jason飛刀用）", 6, BloodMoonScroll, 50)
+-- 創建血月之地分區的按鈕
+local AutoEnterBtn = createButton("傳送到迷宮", 1, BloodMoonScroll, 50)
+local RemoveBloodMoonBtn = createButton("刪除血月", 2, BloodMoonScroll, 50)
+local ThirdPersonBtn = createButton("第三人稱", 3, BloodMoonScroll, 50)
+local SpeedBtn = createButton("加速", 4, BloodMoonScroll, 50)
+local FloatBtn = createButton("滯空（躲Jason飛刀用）", 5, BloodMoonScroll, 50)
 
 -- 功能實現
 
--- 1. 手動輸入進入迷宮功能
-EnterLabyrinthBtn.MouseButton1Click:Connect(function()
-    local playerName = NameTextBox.Text:gsub("^%s*(.-)%s*$", "%1") -- 去除前後空格
-    
-    if playerName == "" then
-        print("請輸入玩家名稱")
-        return
-    end
-    
-    local labyrinthName = playerName .. "'s Labyrinth"
-    local labyrinth = Workspace:FindFirstChild(labyrinthName)
-    
-    if labyrinth then
-        local paintingModel = labyrinth:FindFirstChild("PaintingModel")
-        if paintingModel then
-            local character = LocalPlayer.Character
-            if character and character:FindFirstChild("HumanoidRootPart") then
-                -- 使用更安全的傳送方法
+-- 1. 傳送到指定迷宮功能
+AutoEnterBtn.MouseButton1Click:Connect(function()
+    local character = LocalPlayer.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        local targetPath = Workspace:FindFirstChild("elgatocatguest's Labyrinth")
+        if targetPath then
+            local paintingModel = targetPath:FindFirstChild("PaintingModel")
+            if paintingModel then
+                -- 傳送到 PaintingModel 位置
                 local targetPosition = paintingModel.Position + Vector3.new(0, 5, 0)
                 character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
                 wait(0.1)
                 character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-                print("已傳送到 " .. playerName .. " 的迷宮")
+                print("已傳送到 elgatocatguest 的迷宮")
+            else
+                print("未找到 PaintingModel")
             end
         else
-            print("找到迷宮但沒有找到PaintingModel")
+            print("未找到 elgatocatguest's Labyrinth")
         end
     else
-        print("未找到 " .. playerName .. " 的迷宮")
-        print("確認玩家名稱是否正確，或該玩家是否有開啟迷宮")
+        print("角色未載入完成")
     end
 end)
 
@@ -455,24 +402,35 @@ RemoveBloodMoonBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 3. 第三人稱功能
+-- 3. 持續第三人稱功能
 ThirdPersonBtn.MouseButton1Click:Connect(function()
-    local character = LocalPlayer.Character
-    if character then
-        -- 強制設置第三人稱
-        LocalPlayer.CameraMaxZoomDistance = 50
-        LocalPlayer.CameraMinZoomDistance = 10
+    if thirdPersonConnection then
+        thirdPersonConnection:Disconnect()
+        thirdPersonConnection = nil
+        ThirdPersonBtn.Text = "第三人稱"
+        ThirdPersonBtn.BackgroundColor3 = Color3.fromRGB(60, 120, 200)
+        print("持續第三人稱已關閉")
+    else
+        ThirdPersonBtn.Text = "停止第三人稱"
+        ThirdPersonBtn.BackgroundColor3 = Color3.fromRGB(200, 120, 60)
         
-        -- 等待相機更新
-        wait(0.1)
+        -- 持續設置第三人稱
+        thirdPersonConnection = game:GetService("RunService").Heartbeat:Connect(function()
+            local character = LocalPlayer.Character
+            if character then
+                -- 強制設置第三人稱
+                LocalPlayer.CameraMaxZoomDistance = 50
+                LocalPlayer.CameraMinZoomDistance = 10
+                
+                local camera = Workspace.CurrentCamera
+                if camera then
+                    camera.CameraSubject = character:FindFirstChild("Humanoid")
+                    camera.CameraType = Enum.CameraType.Custom
+                end
+            end
+        end)
         
-        local camera = Workspace.CurrentCamera
-        if camera then
-            camera.CameraSubject = character:FindFirstChild("Humanoid")
-            camera.CameraType = Enum.CameraType.Custom
-        end
-        
-        print("已切換至第三人稱")
+        print("持續第三人稱已開啟")
     end
 end)
 
@@ -556,3 +514,4 @@ end)
 Section1.MouseButton1Click:Connect(function()
     BloodMoonScroll.Visible = true
 end)
+
