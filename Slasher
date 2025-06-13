@@ -46,63 +46,6 @@ LocalPlayer.CharacterAdded:Connect(function(character)
     changeNametag()
 end)
 
--- 建立安全區平台
-local baseSize = Vector3.new(150, 5, 150)
-local basePosition = Vector3.new(5122, 119, 9513)
-
-local platform = Instance.new("Part")
-platform.Size = baseSize
-platform.Position = basePosition
-platform.Anchored = true
-platform.CanCollide = true
-platform.Transparency = 0.5
-platform.Color = Color3.fromRGB(100, 100, 100)
-platform.Material = Enum.Material.SmoothPlastic
-platform.Name = "LocalPlatform"
-platform.Parent = Workspace
-
--- 顯示文字 Part
-local textPart = Instance.new("Part")
-textPart.Size = Vector3.new(50, 1, 50)
-textPart.Anchored = true
-textPart.CanCollide = false
-textPart.Transparency = 1
-textPart.Position = platform.Position - Vector3.new(0, 0.5, 0)
-textPart.Rotation = Vector3.new(180, 0, 0)
-textPart.Parent = Workspace
-
-local surfaceGui = Instance.new("SurfaceGui", textPart)
-surfaceGui.Face = Enum.NormalId.Top
-surfaceGui.AlwaysOnTop = true
-
-local label = Instance.new("TextLabel", surfaceGui)
-label.Text = "貓玲的安全區(>^ω^<)"
-label.Size = UDim2.new(1, 0, 1, 0)
-label.BackgroundTransparency = 1
-label.TextColor3 = Color3.fromRGB(255, 192, 203)
-label.TextScaled = true
-label.Font = Enum.Font.Fantasy
-
--- 建立牆壁
-local function createWall(size, position)
-    local wall = Instance.new("Part")
-    wall.Size = size
-    wall.Position = position
-    wall.Anchored = true
-    wall.CanCollide = true
-    wall.Transparency = 0.5
-    wall.Color = Color3.fromRGB(100, 100, 100)
-    wall.Material = Enum.Material.SmoothPlastic
-    wall.Parent = Workspace
-end
-
-local wallHeight = 150
-createWall(Vector3.new(1, wallHeight, 150), basePosition + Vector3.new(baseSize.X/2, wallHeight/2, 0))
-createWall(Vector3.new(1, wallHeight, 150), basePosition - Vector3.new(baseSize.X/2, -wallHeight/2, 0))
-createWall(Vector3.new(150, wallHeight, 1), basePosition + Vector3.new(0, wallHeight/2, baseSize.Z/2))
-createWall(Vector3.new(150, wallHeight, 1), basePosition - Vector3.new(0, -wallHeight/2, baseSize.Z/2))
-createWall(baseSize, basePosition + Vector3.new(0, wallHeight, 0))
-
 -- GUI 主體
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 ScreenGui.Name = "MaolingHub"
@@ -321,10 +264,55 @@ local function createButton(text, order, parent, spacing)
     return btn
 end
 
+-- 創建輸入框樣式
+local function createTextBox(placeholderText, order, parent, spacing)
+    local textBox = Instance.new("TextBox", parent)
+    textBox.Size = UDim2.new(0, 240, 0, 35)
+    textBox.Position = UDim2.new(0.5, -120, 0, 15 + (order - 1) * spacing)
+    textBox.PlaceholderText = placeholderText
+    textBox.Text = ""
+    textBox.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+    textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+    textBox.Font = Enum.Font.Gotham
+    textBox.TextSize = 14
+    textBox.BorderSizePixel = 0
+    textBox.ClearTextOnFocus = false
+    
+    -- 添加漸層效果
+    local textBoxGradient = Instance.new("UIGradient", textBox)
+    textBoxGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 50, 70)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 60))
+    }
+    
+    -- 添加圓角
+    Instance.new("UICorner", textBox).CornerRadius = UDim.new(0, 8)
+    
+    -- 添加描邊
+    local textBoxStroke = Instance.new("UIStroke", textBox)
+    textBoxStroke.Color = Color3.fromRGB(100, 150, 255)
+    textBoxStroke.Thickness = 1
+    textBoxStroke.Transparency = 0.3
+    
+    -- 添加焦點效果
+    textBox.Focused:Connect(function()
+        textBoxStroke.Transparency = 0.1
+        textBoxStroke.Thickness = 2
+    end)
+    
+    textBox.FocusLost:Connect(function()
+        textBoxStroke.Transparency = 0.3
+        textBoxStroke.Thickness = 1
+    end)
+    
+    return textBox
+end
+
 -- 血月之地分區使用 ScrollingFrame
 local BloodMoonScroll = Instance.new("ScrollingFrame", Content)
 BloodMoonScroll.Size = UDim2.new(1, 0, 1, 0)
-BloodMoonScroll.CanvasSize = UDim2.new(0, 0, 0, 300)
+BloodMoonScroll.CanvasSize = UDim2.new(0, 0, 0, 350)
 BloodMoonScroll.ScrollBarThickness = 6
 BloodMoonScroll.BackgroundTransparency = 1
 BloodMoonScroll.Visible = true
@@ -350,112 +338,46 @@ end
 -- 應用到滾動框
 styleScrollFrame(BloodMoonScroll)
 
--- 創建血月之地分區的按鈕
-local AutoEnterBtn = createButton("自動進入（前提有人開迷宮）", 1, BloodMoonScroll, 50)
-local RemoveBloodMoonBtn = createButton("刪除血月", 2, BloodMoonScroll, 50)
-local ThirdPersonBtn = createButton("第三人稱", 3, BloodMoonScroll, 50)
-local SpeedBtn = createButton("加速", 4, BloodMoonScroll, 50)
-local FloatBtn = createButton("滯空（躲Jason飛刀用）", 5, BloodMoonScroll, 50)
+-- 創建血月之地分區的輸入框和按鈕
+local NameTextBox = createTextBox("輸入玩家名稱", 1, BloodMoonScroll, 50)
+local EnterLabyrinthBtn = createButton("進入迷宮", 2, BloodMoonScroll, 50)
+local RemoveBloodMoonBtn = createButton("刪除血月", 3, BloodMoonScroll, 50)
+local ThirdPersonBtn = createButton("第三人稱", 4, BloodMoonScroll, 50)
+local SpeedBtn = createButton("加速", 5, BloodMoonScroll, 50)
+local FloatBtn = createButton("滯空（躲Jason飛刀用）", 6, BloodMoonScroll, 50)
 
 -- 功能實現
 
--- 1. 自動進入迷宮功能
-AutoEnterBtn.MouseButton1Click:Connect(function()
-    local found = false
+-- 1. 手動輸入進入迷宮功能
+EnterLabyrinthBtn.MouseButton1Click:Connect(function()
+    local playerName = NameTextBox.Text:gsub("^%s*(.-)%s*$", "%1") -- 去除前後空格
     
-    -- 方法1: 直接搜尋所有可能的迷宮名稱
-    local function searchLabyrinths()
-        for _, obj in pairs(Workspace:GetChildren()) do
-            if obj.Name:match("'s Labyrinth$") then
-                local paintingModel = obj:FindFirstChild("PaintingModel")
-                if paintingModel then
-                    return obj, paintingModel
-                end
+    if playerName == "" then
+        print("請輸入玩家名稱")
+        return
+    end
+    
+    local labyrinthName = playerName .. "'s Labyrinth"
+    local labyrinth = Workspace:FindFirstChild(labyrinthName)
+    
+    if labyrinth then
+        local paintingModel = labyrinth:FindFirstChild("PaintingModel")
+        if paintingModel then
+            local character = LocalPlayer.Character
+            if character and character:FindFirstChild("HumanoidRootPart") then
+                -- 使用更安全的傳送方法
+                local targetPosition = paintingModel.Position + Vector3.new(0, 5, 0)
+                character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+                wait(0.1)
+                character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+                print("已傳送到 " .. playerName .. " 的迷宮")
             end
-        end
-        return nil, nil
-    end
-    
-    -- 方法2: 通過玩家名稱搜尋
-    local function searchByPlayers()
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then
-                local labyrinthName = player.Name .. "'s Labyrinth"
-                local labyrinth = Workspace:FindFirstChild(labyrinthName)
-                if labyrinth then
-                    local paintingModel = labyrinth:FindFirstChild("PaintingModel")
-                    if paintingModel then
-                        return labyrinth, paintingModel, player.Name
-                    end
-                end
-            end
-        end
-        return nil, nil, nil
-    end
-    
-    -- 方法3: 深度搜尋所有包含PaintingModel的對象
-    local function deepSearch(parent)
-        for _, child in pairs(parent:GetChildren()) do
-            if child.Name == "PaintingModel" and child.Parent.Name:match("'s Labyrinth$") then
-                return child.Parent, child
-            end
-            if #child:GetChildren() > 0 then
-                local foundParent, foundModel = deepSearch(child)
-                if foundParent and foundModel then
-                    return foundParent, foundModel
-                end
-            end
-        end
-        return nil, nil
-    end
-    
-    -- 嘗試所有搜尋方法
-    local labyrinth, paintingModel, playerName
-    
-    -- 先嘗試方法1
-    labyrinth, paintingModel = searchLabyrinths()
-    if labyrinth and paintingModel then
-        playerName = labyrinth.Name:gsub("'s Labyrinth", "")
-        found = true
-    end
-    
-    -- 如果方法1失敗，嘗試方法2
-    if not found then
-        labyrinth, paintingModel, playerName = searchByPlayers()
-        if labyrinth and paintingModel then
-            found = true
-        end
-    end
-    
-    -- 如果方法2失敗，嘗試方法3
-    if not found then
-        labyrinth, paintingModel = deepSearch(Workspace)
-        if labyrinth and paintingModel then
-            playerName = labyrinth.Name:gsub("'s Labyrinth", "")
-            found = true
-        end
-    end
-    
-    -- 執行傳送
-    if found then
-        local character = LocalPlayer.Character
-        if character and character:FindFirstChild("HumanoidRootPart") then
-            -- 使用更安全的傳送方法
-            local targetPosition = paintingModel.Position + Vector3.new(0, 5, 0)
-            character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
-            wait(0.1)
-            character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-            print("已傳送到 " .. (playerName or "未知玩家") .. " 的迷宮")
+        else
+            print("找到迷宮但沒有找到PaintingModel")
         end
     else
-        print("未找到任何玩家的迷宮")
-        -- 輸出調試資訊
-        print("當前Workspace中的物件:")
-        for _, obj in pairs(Workspace:GetChildren()) do
-            if obj.Name:match("Labyrinth") then
-                print("- " .. obj.Name)
-            end
-        end
+        print("未找到 " .. playerName .. " 的迷宮")
+        print("確認玩家名稱是否正確，或該玩家是否有開啟迷宮")
     end
 end)
 
