@@ -295,7 +295,7 @@ end
 styleScrollFrame(BloodMoonScroll)
 
 -- 創建血月之地分區的按鈕
-local AutoEnterBtn = createButton("傳送到迷宮", 1, BloodMoonScroll, 50)
+local AutoEnterBtn = createButton("傳送到血月之地", 1, BloodMoonScroll, 50)
 local RemoveBloodMoonBtn = createButton("刪除血月", 2, BloodMoonScroll, 50)
 local ThirdPersonBtn = createButton("第三人稱", 3, BloodMoonScroll, 50)
 local SpeedBtn = createButton("加速", 4, BloodMoonScroll, 50)
@@ -303,25 +303,26 @@ local FloatBtn = createButton("滯空（躲Jason飛刀用）", 5, BloodMoonScrol
 
 -- 功能實現
 
--- 1. 傳送到指定迷宮功能
+-- 1. 傳送到血月之地功能
 AutoEnterBtn.MouseButton1Click:Connect(function()
     local character = LocalPlayer.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
-        local targetPath = Workspace:FindFirstChild("elgatocatguest's Labyrinth")
-        if targetPath then
-            local paintingModel = targetPath:FindFirstChild("PaintingModel")
-            if paintingModel then
-                -- 傳送到 PaintingModel 位置
-                local targetPosition = paintingModel.Position + Vector3.new(0, 5, 0)
-                character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
-                wait(0.1)
-                character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-                print("已傳送到 elgatocatguest 的迷宮")
-            else
-                print("未找到 PaintingModel")
-            end
+        -- 直接使用路徑傳送
+        local success, error = pcall(function()
+            local targetPath = workspace["elgatocatguest's Labyrinth"]
+            local paintingModel = targetPath.PaintingModel
+            
+            -- 傳送到 PaintingModel 位置
+            local targetPosition = paintingModel.Position + Vector3.new(0, 5, 0)
+            character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+            character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+            character.HumanoidRootPart.AngularVelocity = Vector3.new(0, 0, 0)
+        end)
+        
+        if success then
+            print("已傳送到血月之地")
         else
-            print("未找到 elgatocatguest's Labyrinth")
+            print("傳送失敗: " .. tostring(error))
         end
     else
         print("角色未載入完成")
@@ -409,23 +410,41 @@ ThirdPersonBtn.MouseButton1Click:Connect(function()
         thirdPersonConnection = nil
         ThirdPersonBtn.Text = "第三人稱"
         ThirdPersonBtn.BackgroundColor3 = Color3.fromRGB(60, 120, 200)
+        
+        -- 重置相機設定
+        LocalPlayer.CameraMaxZoomDistance = 400
+        LocalPlayer.CameraMinZoomDistance = 0.5
+        
         print("持續第三人稱已關閉")
     else
         ThirdPersonBtn.Text = "停止第三人稱"
         ThirdPersonBtn.BackgroundColor3 = Color3.fromRGB(200, 120, 60)
         
-        -- 持續設置第三人稱
+        -- 立即設置第三人稱
+        LocalPlayer.CameraMaxZoomDistance = 50
+        LocalPlayer.CameraMinZoomDistance = 10
+        
+        local character = LocalPlayer.Character
+        if character then
+            local camera = workspace.CurrentCamera
+            if camera and character:FindFirstChild("Humanoid") then
+                camera.CameraSubject = character.Humanoid
+                camera.CameraType = Enum.CameraType.Custom
+            end
+        end
+        
+        -- 持續監控第三人稱設定
         thirdPersonConnection = game:GetService("RunService").Heartbeat:Connect(function()
-            local character = LocalPlayer.Character
-            if character then
-                -- 強制設置第三人稱
-                LocalPlayer.CameraMaxZoomDistance = 50
-                LocalPlayer.CameraMinZoomDistance = 10
-                
-                local camera = Workspace.CurrentCamera
-                if camera then
-                    camera.CameraSubject = character:FindFirstChild("Humanoid")
-                    camera.CameraType = Enum.CameraType.Custom
+            -- 持續設置相機距離
+            LocalPlayer.CameraMaxZoomDistance = 50
+            LocalPlayer.CameraMinZoomDistance = 10
+            
+            local char = LocalPlayer.Character
+            if char then
+                local cam = workspace.CurrentCamera
+                if cam and char:FindFirstChild("Humanoid") then
+                    cam.CameraSubject = char.Humanoid
+                    cam.CameraType = Enum.CameraType.Custom
                 end
             end
         end)
@@ -514,4 +533,3 @@ end)
 Section1.MouseButton1Click:Connect(function()
     BloodMoonScroll.Visible = true
 end)
-
