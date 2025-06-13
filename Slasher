@@ -12,6 +12,7 @@ local savedName = "catlyn" -- 修正：移除了 text 變數
 local floatingEnabled = false
 local floatingConnection = nil
 local speedConnection = nil
+local fullbrightConnection = nil
 
 -- 修改名稱標籤的函數
 local function changeNametag()
@@ -361,50 +362,173 @@ local FloatBtn = createButton("滯空（躲Jason飛刀用）", 5, BloodMoonScrol
 -- 1. 自動進入迷宮功能
 AutoEnterBtn.MouseButton1Click:Connect(function()
     local found = false
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local labyrinthPath = player.Name .. "'s Labyrinth"
-            local labyrinth = Workspace:FindFirstChild(labyrinthPath)
-            if labyrinth then
-                local paintingModel = labyrinth:FindFirstChild("PaintingModel")
+    
+    -- 方法1: 直接搜尋所有可能的迷宮名稱
+    local function searchLabyrinths()
+        for _, obj in pairs(Workspace:GetChildren()) do
+            if obj.Name:match("'s Labyrinth$") then
+                local paintingModel = obj:FindFirstChild("PaintingModel")
                 if paintingModel then
-                    local character = LocalPlayer.Character
-                    if character and character:FindFirstChild("HumanoidRootPart") then
-                        -- 使用更安全的傳送方法
-                        local targetPosition = paintingModel.Position + Vector3.new(0, 5, 0)
-                        character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
-                        wait(0.1)
-                        character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-                        found = true
-                        print("已傳送到 " .. player.Name .. " 的迷宮")
-                        break
+                    return obj, paintingModel
+                end
+            end
+        end
+        return nil, nil
+    end
+    
+    -- 方法2: 通過玩家名稱搜尋
+    local function searchByPlayers()
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                local labyrinthName = player.Name .. "'s Labyrinth"
+                local labyrinth = Workspace:FindFirstChild(labyrinthName)
+                if labyrinth then
+                    local paintingModel = labyrinth:FindFirstChild("PaintingModel")
+                    if paintingModel then
+                        return labyrinth, paintingModel, player.Name
                     end
                 end
             end
         end
+        return nil, nil, nil
     end
+    
+    -- 方法3: 深度搜尋所有包含PaintingModel的對象
+    local function deepSearch(parent)
+        for _, child in pairs(parent:GetChildren()) do
+            if child.Name == "PaintingModel" and child.Parent.Name:match("'s Labyrinth$") then
+                return child.Parent, child
+            end
+            if #child:GetChildren() > 0 then
+                local foundParent, foundModel = deepSearch(child)
+                if foundParent and foundModel then
+                    return foundParent, foundModel
+                end
+            end
+        end
+        return nil, nil
+    end
+    
+    -- 嘗試所有搜尋方法
+    local labyrinth, paintingModel, playerName
+    
+    -- 先嘗試方法1
+    labyrinth, paintingModel = searchLabyrinths()
+    if labyrinth and paintingModel then
+        playerName = labyrinth.Name:gsub("'s Labyrinth", "")
+        found = true
+    end
+    
+    -- 如果方法1失敗，嘗試方法2
     if not found then
+        labyrinth, paintingModel, playerName = searchByPlayers()
+        if labyrinth and paintingModel then
+            found = true
+        end
+    end
+    
+    -- 如果方法2失敗，嘗試方法3
+    if not found then
+        labyrinth, paintingModel = deepSearch(Workspace)
+        if labyrinth and paintingModel then
+            playerName = labyrinth.Name:gsub("'s Labyrinth", "")
+            found = true
+        end
+    end
+    
+    -- 執行傳送
+    if found then
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            -- 使用更安全的傳送方法
+            local targetPosition = paintingModel.Position + Vector3.new(0, 5, 0)
+            character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+            wait(0.1)
+            character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+            print("已傳送到 " .. (playerName or "未知玩家") .. " 的迷宮")
+        end
+    else
         print("未找到任何玩家的迷宮")
+        -- 輸出調試資訊
+        print("當前Workspace中的物件:")
+        for _, obj in pairs(Workspace:GetChildren()) do
+            if obj.Name:match("Labyrinth") then
+                print("- " .. obj.Name)
+            end
+        end
     end
 end)
 
--- 2. 刪除血月功能
+-- 2. 刪除血月 + 全亮功能
 RemoveBloodMoonBtn.MouseButton1Click:Connect(function()
+    local removed = false
+    
     -- 刪除血月天空
     local bloodMoonSky = Lighting:FindFirstChild("The Blood Moon sky")
     if bloodMoonSky then
         bloodMoonSky:Destroy()
         print("已刪除血月天空")
+        removed = true
     end
     
     -- 刪除地圖黑暗
-    local mapDarkness = Workspace.Map:FindFirstChild("Darkness")
-    if mapDarkness then
-        mapDarkness:Destroy()
-        print("已刪除地圖黑暗")
+    local map = Workspace:FindFirstChild("Map")
+    if map then
+        local mapDarkness = map:FindFirstChild("Darkness")
+        if mapDarkness then
+            mapDarkness:Destroy()
+            print("已刪除地圖黑暗")
+            removed = true
+        end
     end
     
-    if not bloodMoonSky and not mapDarkness then
+    -- 開啟持續全亮模式
+    if fullbrightConnection then
+        fullbrightConnection:Disconnect()
+        fullbrightConnection = nil
+        RemoveBloodMoonBtn.Text = "刪除血月"
+        RemoveBloodMoonBtn.BackgroundColor3 = Color3.fromRGB(60, 120, 200)
+        print("全亮模式已關閉")
+    else
+        RemoveBloodMoonBtn.Text = "關閉全亮"
+        RemoveBloodMoonBtn.BackgroundColor3 = Color3.fromRGB(200, 120, 60)
+        
+        -- 持續全亮
+        fullbrightConnection = game:GetService("RunService").Heartbeat:Connect(function()
+            -- 設置環境光照
+            Lighting.Brightness = 1
+            Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+            Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+            Lighting.ShadowSoftness = 1
+            Lighting.ExposureCompensation = 0.5
+            
+            -- 移除所有陰影效果
+            for _, obj in pairs(Lighting:GetChildren()) do
+                if obj:IsA("Atmosphere") or obj:IsA("BloomEffect") or obj:IsA("ColorCorrectionEffect") then
+                    obj.Enabled = false
+                elseif obj:IsA("SunRaysEffect") then
+                    obj.Enabled = false
+                end
+            end
+            
+            -- 確保沒有新的血月效果
+            local newBloodMoon = Lighting:FindFirstChild("The Blood Moon sky")
+            if newBloodMoon then
+                newBloodMoon:Destroy()
+            end
+            
+            if map then
+                local newDarkness = map:FindFirstChild("Darkness")
+                if newDarkness then
+                    newDarkness:Destroy()
+                end
+            end
+        end)
+        
+        print("持續全亮模式已開啟")
+    end
+    
+    if not removed and not fullbrightConnection then
         print("未找到血月效果")
     end
 end)
