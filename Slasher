@@ -11,6 +11,7 @@ local savedName = "catlyn" -- 修正：移除了 text 變數
 -- 滯空狀態
 local floatingEnabled = false
 local floatingConnection = nil
+local speedConnection = nil
 
 -- 修改名稱標籤的函數
 local function changeNametag()
@@ -369,7 +370,11 @@ AutoEnterBtn.MouseButton1Click:Connect(function()
                 if paintingModel then
                     local character = LocalPlayer.Character
                     if character and character:FindFirstChild("HumanoidRootPart") then
-                        character.HumanoidRootPart.CFrame = paintingModel.CFrame
+                        -- 使用更安全的傳送方法
+                        local targetPosition = paintingModel.Position + Vector3.new(0, 5, 0)
+                        character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+                        wait(0.1)
+                        character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
                         found = true
                         print("已傳送到 " .. player.Name .. " 的迷宮")
                         break
@@ -406,20 +411,46 @@ end)
 
 -- 3. 第三人稱功能
 ThirdPersonBtn.MouseButton1Click:Connect(function()
-    local camera = Workspace.CurrentCamera
-    if camera then
-        camera.CameraSubject = LocalPlayer.Character
-        camera.CameraType = Enum.CameraType.Follow
+    local character = LocalPlayer.Character
+    if character then
+        -- 強制設置第三人稱
+        LocalPlayer.CameraMaxZoomDistance = 50
+        LocalPlayer.CameraMinZoomDistance = 10
+        
+        -- 等待相機更新
+        wait(0.1)
+        
+        local camera = Workspace.CurrentCamera
+        if camera then
+            camera.CameraSubject = character:FindFirstChild("Humanoid")
+            camera.CameraType = Enum.CameraType.Custom
+        end
+        
         print("已切換至第三人稱")
     end
 end)
 
--- 4. 加速功能
+-- 4. 持續加速功能
 SpeedBtn.MouseButton1Click:Connect(function()
-    local character = LocalPlayer.Character
-    if character and character:FindFirstChild("Humanoid") then
-        character.Humanoid.WalkSpeed = 35
-        print("速度已設為 35")
+    -- 停止之前的加速連接
+    if speedConnection then
+        speedConnection:Disconnect()
+        speedConnection = nil
+        SpeedBtn.Text = "加速"
+        SpeedBtn.BackgroundColor3 = Color3.fromRGB(60, 120, 200)
+        print("加速已關閉")
+    else
+        -- 開始持續加速
+        SpeedBtn.Text = "停止加速"
+        SpeedBtn.BackgroundColor3 = Color3.fromRGB(200, 120, 60)
+        
+        speedConnection = game:GetService("RunService").Heartbeat:Connect(function()
+            local character = LocalPlayer.Character
+            if character and character:FindFirstChild("Humanoid") then
+                character.Humanoid.WalkSpeed = 35
+            end
+        end)
+        print("持續加速已開啟")
     end
 end)
 
@@ -435,7 +466,11 @@ FloatBtn.MouseButton1Click:Connect(function()
         floatingConnection = game:GetService("RunService").Heartbeat:Connect(function()
             local character = LocalPlayer.Character
             if character and character:FindFirstChild("HumanoidRootPart") then
-                character.HumanoidRootPart.CFrame = CFrame.new(-5, 65, 13)
+                local rootPart = character.HumanoidRootPart
+                -- 平滑移動到目標位置
+                rootPart.CFrame = CFrame.new(-5, 65, 13)
+                rootPart.Velocity = Vector3.new(0, 0, 0)
+                rootPart.AngularVelocity = Vector3.new(0, 0, 0)
             end
         end)
         print("滯空已開啟")
@@ -443,11 +478,30 @@ FloatBtn.MouseButton1Click:Connect(function()
         FloatBtn.Text = "滯空（躲Jason飛刀用）"
         FloatBtn.BackgroundColor3 = Color3.fromRGB(60, 120, 200)
         
-        -- 停止滯空
+        -- 停止滯空並安全著陸
         if floatingConnection then
             floatingConnection:Disconnect()
             floatingConnection = nil
         end
+        
+        -- 安全著陸處理
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            local rootPart = character.HumanoidRootPart
+            -- 清除所有速度
+            rootPart.Velocity = Vector3.new(0, 0, 0)
+            rootPart.AngularVelocity = Vector3.new(0, 0, 0)
+            
+            -- 稍微提升位置避免卡地
+            local currentPos = rootPart.Position
+            rootPart.CFrame = CFrame.new(currentPos.X, currentPos.Y + 2, currentPos.Z)
+            
+            wait(0.1)
+            
+            -- 讓玩家自然下降
+            rootPart.Velocity = Vector3.new(0, -10, 0)
+        end
+        
         print("滯空已關閉")
     end
 end)
