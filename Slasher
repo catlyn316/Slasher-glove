@@ -1,0 +1,458 @@
+-- 基本服務與玩家
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+
+-- 儲存自定義名稱
+local savedName = "catlyn" -- 修正：移除了 text 變數
+
+-- 滯空狀態
+local floatingEnabled = false
+local floatingConnection = nil
+
+-- 修改名稱標籤的函數
+local function changeNametag()
+    local playerName = LocalPlayer.Name
+    local character = workspace:FindFirstChild(playerName)
+    if character then
+        local head = character:FindFirstChild("Head")
+        if head then
+            local nametagFolder = head:FindFirstChild("Nametag")
+            if nametagFolder then
+                local labels = nametagFolder:FindFirstChild("Labels")
+                if labels then
+                    local topLabel = labels:FindFirstChild("TopLabel")
+                    if topLabel then
+                        topLabel.Text = savedName
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- 初次執行修改名稱
+changeNametag()
+
+-- 監聽角色重生事件，重生後重新應用名稱
+LocalPlayer.CharacterAdded:Connect(function(character)
+    -- 等待角色完全載入
+    character:WaitForChild("Head", 10)
+    wait(0.5) -- 等待名稱標籤系統初始化
+    changeNametag()
+end)
+
+-- 建立安全區平台
+local baseSize = Vector3.new(150, 5, 150)
+local basePosition = Vector3.new(5122, 119, 9513)
+
+local platform = Instance.new("Part")
+platform.Size = baseSize
+platform.Position = basePosition
+platform.Anchored = true
+platform.CanCollide = true
+platform.Transparency = 0.5
+platform.Color = Color3.fromRGB(100, 100, 100)
+platform.Material = Enum.Material.SmoothPlastic
+platform.Name = "LocalPlatform"
+platform.Parent = Workspace
+
+-- 顯示文字 Part
+local textPart = Instance.new("Part")
+textPart.Size = Vector3.new(50, 1, 50)
+textPart.Anchored = true
+textPart.CanCollide = false
+textPart.Transparency = 1
+textPart.Position = platform.Position - Vector3.new(0, 0.5, 0)
+textPart.Rotation = Vector3.new(180, 0, 0)
+textPart.Parent = Workspace
+
+local surfaceGui = Instance.new("SurfaceGui", textPart)
+surfaceGui.Face = Enum.NormalId.Top
+surfaceGui.AlwaysOnTop = true
+
+local label = Instance.new("TextLabel", surfaceGui)
+label.Text = "貓玲的安全區(>^ω^<)"
+label.Size = UDim2.new(1, 0, 1, 0)
+label.BackgroundTransparency = 1
+label.TextColor3 = Color3.fromRGB(255, 192, 203)
+label.TextScaled = true
+label.Font = Enum.Font.Fantasy
+
+-- 建立牆壁
+local function createWall(size, position)
+    local wall = Instance.new("Part")
+    wall.Size = size
+    wall.Position = position
+    wall.Anchored = true
+    wall.CanCollide = true
+    wall.Transparency = 0.5
+    wall.Color = Color3.fromRGB(100, 100, 100)
+    wall.Material = Enum.Material.SmoothPlastic
+    wall.Parent = Workspace
+end
+
+local wallHeight = 150
+createWall(Vector3.new(1, wallHeight, 150), basePosition + Vector3.new(baseSize.X/2, wallHeight/2, 0))
+createWall(Vector3.new(1, wallHeight, 150), basePosition - Vector3.new(baseSize.X/2, -wallHeight/2, 0))
+createWall(Vector3.new(150, wallHeight, 1), basePosition + Vector3.new(0, wallHeight/2, baseSize.Z/2))
+createWall(Vector3.new(150, wallHeight, 1), basePosition - Vector3.new(0, -wallHeight/2, baseSize.Z/2))
+createWall(baseSize, basePosition + Vector3.new(0, wallHeight, 0))
+
+-- GUI 主體
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+ScreenGui.Name = "MaolingHub"
+
+-- 修正：主框架樣式
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Size = UDim2.new(0, 450, 0, 350)
+Frame.Position = UDim2.new(0.5, -225, 0.5, -175)
+Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+Frame.BorderSizePixel = 0
+Frame.Active = true
+Frame.Draggable = true
+
+-- 添加漸層效果
+local gradient = Instance.new("UIGradient", Frame)
+gradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 25, 35)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(35, 35, 50))
+}
+gradient.Rotation = 45
+
+-- 添加外發光效果
+local stroke = Instance.new("UIStroke", Frame)
+stroke.Color = Color3.fromRGB(100, 150, 255)
+stroke.Thickness = 2
+stroke.Transparency = 0.5
+
+Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 15)
+
+-- 修正：標題樣式
+local Title = Instance.new("TextLabel", Frame)
+Title.Size = UDim2.new(1, -80, 0, 50)
+Title.Position = UDim2.new(0, 15, 0, 5)
+Title.BackgroundTransparency = 1
+Title.Text = "✨貓玲的腳本區✨"
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 22
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+-- 添加標題發光效果
+local titleStroke = Instance.new("UIStroke", Title)
+titleStroke.Color = Color3.fromRGB(100, 150, 255)
+titleStroke.Thickness = 1
+titleStroke.Transparency = 0.3
+
+-- 修正：關閉按鈕樣式和功能
+local Close = Instance.new("TextButton", Frame)
+Close.Size = UDim2.new(0, 35, 0, 35)
+Close.Position = UDim2.new(1, -40, 0, 8)
+Close.Text = "x"
+Close.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+Close.TextColor3 = Color3.fromRGB(255, 255, 255)
+Close.Font = Enum.Font.GothamBold
+Close.TextSize = 18
+Close.BorderSizePixel = 0
+
+-- 添加關閉按鈕效果
+local closeGradient = Instance.new("UIGradient", Close)
+closeGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(220, 60, 60)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 40, 40))
+}
+
+Instance.new("UICorner", Close).CornerRadius = UDim.new(0, 8)
+
+-- 修正：關閉按鈕功能
+Close.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+    _G.maolingHubLoaded = false -- 重置載入狀態
+end)
+
+-- 修正：最小化按鈕樣式
+local Minimize = Instance.new("TextButton", Frame)
+Minimize.Size = UDim2.new(0, 35, 0, 35)
+Minimize.Position = UDim2.new(1, -80, 0, 8)
+Minimize.Text = "─"
+Minimize.BackgroundColor3 = Color3.fromRGB(100, 100, 120)
+Minimize.TextColor3 = Color3.fromRGB(255, 255, 255)
+Minimize.Font = Enum.Font.GothamBold
+Minimize.TextSize = 16
+Minimize.BorderSizePixel = 0
+
+local minimizeGradient = Instance.new("UIGradient", Minimize)
+minimizeGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 100, 120)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 80, 100))
+}
+
+Instance.new("UICorner", Minimize).CornerRadius = UDim.new(0, 8)
+
+-- 修正：側邊欄為可滾動
+local SideBar = Instance.new("ScrollingFrame", Frame)
+SideBar.Size = UDim2.new(0, 130, 1, -55)
+SideBar.Position = UDim2.new(0, 5, 0, 50)
+SideBar.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+SideBar.BorderSizePixel = 0
+SideBar.ScrollBarThickness = 6
+SideBar.CanvasSize = UDim2.new(0, 0, 0, 200)
+SideBar.AutomaticCanvasSize = Enum.AutomaticSize.Y
+SideBar.ScrollingDirection = Enum.ScrollingDirection.Y
+
+-- 添加側邊欄樣式
+local sidebarGradient = Instance.new("UIGradient", SideBar)
+sidebarGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 35, 50)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(45, 45, 65))
+}
+
+Instance.new("UICorner", SideBar).CornerRadius = UDim.new(0, 10)
+
+-- 添加UIListLayout到側邊欄
+local sidebarLayout = Instance.new("UIListLayout", SideBar)
+sidebarLayout.Padding = UDim.new(0, 8)
+sidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+-- 修正：內容區域
+local Content = Instance.new("Frame", Frame)
+Content.Size = UDim2.new(1, -145, 1, -55)
+Content.Position = UDim2.new(0, 140, 0, 50)
+Content.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+Content.BorderSizePixel = 0
+
+local contentGradient = Instance.new("UIGradient", Content)
+contentGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 60)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 50, 75))
+}
+
+Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 10)
+
+-- 修正：縮小功能的尺寸
+local isMinimized = false
+local fullSize = UDim2.new(0, 450, 0, 350)
+local miniSize = UDim2.new(0, 450, 0, 50)
+
+Minimize.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    SideBar.Visible = not isMinimized
+    Content.Visible = not isMinimized
+    Frame.Size = isMinimized and miniSize or fullSize
+end)
+
+-- 修正：分區按鈕樣式
+local function createSectionButton(text, order, parent)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.new(0, 120, 0, 45)
+    btn.Text = text
+    btn.BackgroundColor3 = Color3.fromRGB(70, 70, 90)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 14
+    btn.BorderSizePixel = 0
+    
+    -- 添加漸層
+    local btnGradient = Instance.new("UIGradient", btn)
+    btnGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(70, 70, 90)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 50, 70))
+    }
+    
+    -- 添加圓角
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
+    
+    -- 添加描邊
+    local btnStroke = Instance.new("UIStroke", btn)
+    btnStroke.Color = Color3.fromRGB(100, 150, 255)
+    btnStroke.Thickness = 1
+    btnStroke.Transparency = 0.2
+    
+    return btn
+end
+
+-- 創建血月之地分區按鈕
+local Section1 = createSectionButton("🌙 血月之地", 1, SideBar)
+
+-- 修正：一般按鈕樣式
+local function createButton(text, order, parent, spacing)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.new(0, 240, 0, 35)
+    btn.Position = UDim2.new(0.5, -120, 0, 15 + (order - 1) * spacing)
+    btn.Text = text
+    btn.BackgroundColor3 = Color3.fromRGB(60, 120, 200)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 14
+    btn.BorderSizePixel = 0
+    
+    -- 添加漸層效果
+    local btnGradient = Instance.new("UIGradient", btn)
+    btnGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 120, 200)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 100, 180))
+    }
+    
+    -- 添加圓角
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    
+    -- 添加描邊
+    local btnStroke = Instance.new("UIStroke", btn)
+    btnStroke.Color = Color3.fromRGB(100, 150, 255)
+    btnStroke.Thickness = 1
+    btnStroke.Transparency = 0.1
+    
+    -- 添加hover效果
+    btn.MouseEnter:Connect(function()
+        btn.BackgroundColor3 = Color3.fromRGB(80, 140, 220)
+        btnStroke.Transparency = 0.05
+    end)
+    
+    btn.MouseLeave:Connect(function()
+        btn.BackgroundColor3 = Color3.fromRGB(60, 120, 200)
+        btnStroke.Transparency = 0.1
+    end)
+    
+    return btn
+end
+
+-- 血月之地分區使用 ScrollingFrame
+local BloodMoonScroll = Instance.new("ScrollingFrame", Content)
+BloodMoonScroll.Size = UDim2.new(1, 0, 1, 0)
+BloodMoonScroll.CanvasSize = UDim2.new(0, 0, 0, 300)
+BloodMoonScroll.ScrollBarThickness = 6
+BloodMoonScroll.BackgroundTransparency = 1
+BloodMoonScroll.Visible = true
+BloodMoonScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+BloodMoonScroll.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+BloodMoonScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+
+-- 添加滾動框樣式改善
+local function styleScrollFrame(scrollFrame)
+    scrollFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
+    scrollFrame.BorderSizePixel = 0
+    scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 150, 255)
+    
+    local scrollGradient = Instance.new("UIGradient", scrollFrame)
+    scrollGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(45, 45, 65)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(55, 55, 80))
+    }
+    
+    Instance.new("UICorner", scrollFrame).CornerRadius = UDim.new(0, 8)
+end
+
+-- 應用到滾動框
+styleScrollFrame(BloodMoonScroll)
+
+-- 創建血月之地分區的按鈕
+local AutoEnterBtn = createButton("自動進入（前提有人開迷宮）", 1, BloodMoonScroll, 50)
+local RemoveBloodMoonBtn = createButton("刪除血月", 2, BloodMoonScroll, 50)
+local ThirdPersonBtn = createButton("第三人稱", 3, BloodMoonScroll, 50)
+local SpeedBtn = createButton("加速", 4, BloodMoonScroll, 50)
+local FloatBtn = createButton("滯空（躲Jason飛刀用）", 5, BloodMoonScroll, 50)
+
+-- 功能實現
+
+-- 1. 自動進入迷宮功能
+AutoEnterBtn.MouseButton1Click:Connect(function()
+    local found = false
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local labyrinthPath = player.Name .. "'s Labyrinth"
+            local labyrinth = Workspace:FindFirstChild(labyrinthPath)
+            if labyrinth then
+                local paintingModel = labyrinth:FindFirstChild("PaintingModel")
+                if paintingModel then
+                    local character = LocalPlayer.Character
+                    if character and character:FindFirstChild("HumanoidRootPart") then
+                        character.HumanoidRootPart.CFrame = paintingModel.CFrame
+                        found = true
+                        print("已傳送到 " .. player.Name .. " 的迷宮")
+                        break
+                    end
+                end
+            end
+        end
+    end
+    if not found then
+        print("未找到任何玩家的迷宮")
+    end
+end)
+
+-- 2. 刪除血月功能
+RemoveBloodMoonBtn.MouseButton1Click:Connect(function()
+    -- 刪除血月天空
+    local bloodMoonSky = Lighting:FindFirstChild("The Blood Moon sky")
+    if bloodMoonSky then
+        bloodMoonSky:Destroy()
+        print("已刪除血月天空")
+    end
+    
+    -- 刪除地圖黑暗
+    local mapDarkness = Workspace.Map:FindFirstChild("Darkness")
+    if mapDarkness then
+        mapDarkness:Destroy()
+        print("已刪除地圖黑暗")
+    end
+    
+    if not bloodMoonSky and not mapDarkness then
+        print("未找到血月效果")
+    end
+end)
+
+-- 3. 第三人稱功能
+ThirdPersonBtn.MouseButton1Click:Connect(function()
+    local camera = Workspace.CurrentCamera
+    if camera then
+        camera.CameraSubject = LocalPlayer.Character
+        camera.CameraType = Enum.CameraType.Follow
+        print("已切換至第三人稱")
+    end
+end)
+
+-- 4. 加速功能
+SpeedBtn.MouseButton1Click:Connect(function()
+    local character = LocalPlayer.Character
+    if character and character:FindFirstChild("Humanoid") then
+        character.Humanoid.WalkSpeed = 35
+        print("速度已設為 35")
+    end
+end)
+
+-- 5. 滞空功能
+FloatBtn.MouseButton1Click:Connect(function()
+    floatingEnabled = not floatingEnabled
+    
+    if floatingEnabled then
+        FloatBtn.Text = "停止滯空"
+        FloatBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+        
+        -- 開始滯空
+        floatingConnection = game:GetService("RunService").Heartbeat:Connect(function()
+            local character = LocalPlayer.Character
+            if character and character:FindFirstChild("HumanoidRootPart") then
+                character.HumanoidRootPart.CFrame = CFrame.new(-5, 65, 13)
+            end
+        end)
+        print("滯空已開啟")
+    else
+        FloatBtn.Text = "滯空（躲Jason飛刀用）"
+        FloatBtn.BackgroundColor3 = Color3.fromRGB(60, 120, 200)
+        
+        -- 停止滯空
+        if floatingConnection then
+            floatingConnection:Disconnect()
+            floatingConnection = nil
+        end
+        print("滯空已關閉")
+    end
+end)
+
+-- 分區按鈕點擊事件
+Section1.MouseButton1Click:Connect(function()
+    BloodMoonScroll.Visible = true
+end)
