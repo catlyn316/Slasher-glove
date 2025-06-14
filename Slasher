@@ -303,25 +303,45 @@ local FloatBtn = createButton("滯空（躲Jason飛刀用）", 5, BloodMoonScrol
 
 -- 功能實現
 
--- 1. 傳送到血月之地功能
+-- 1. 自動偵測並傳送到血月之地功能
+local function findLabyrinthPath()
+    -- 獲取所有玩家名稱
+    for _, player in pairs(Players:GetPlayers()) do
+        local labyrinthPath = player.Name .. "'s Labyrinth"
+        local fullPath = Workspace:FindFirstChild(labyrinthPath)
+        
+        if fullPath then
+            local paintingModel = fullPath:FindFirstChild("PaintingModel")
+            if paintingModel then
+                local hitBox = paintingModel:FindFirstChild("HitBox")
+                if hitBox then
+                    return hitBox
+                end
+            end
+        end
+    end
+    return nil
+end
+
 AutoEnterBtn.MouseButton1Click:Connect(function()
     local character = LocalPlayer.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
-        -- 直接使用路徑傳送
         local success, error = pcall(function()
-            local targetPath = workspace["elgatocatguest's Labyrinth"]
-            local paintingModel = targetPath.PaintingModel
+            local targetHitBox = findLabyrinthPath()
             
-            -- 傳送到 PaintingModel 位置
-            local targetPosition = paintingModel.Position + Vector3.new(0, 5, 0)
-            character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
-            character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-            character.HumanoidRootPart.AngularVelocity = Vector3.new(0, 0, 0)
+            if targetHitBox then
+                -- 傳送到 HitBox 位置
+                local targetPosition = targetHitBox.Position + Vector3.new(0, 5, 0)
+                character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+                character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+                character.HumanoidRootPart.AngularVelocity = Vector3.new(0, 0, 0)
+                print("已傳送到血月之地")
+            else
+                print("未找到任何玩家的迷宮")
+            end
         end)
         
-        if success then
-            print("已傳送到血月之地")
-        else
+        if not success then
             print("傳送失敗: " .. tostring(error))
         end
     else
@@ -329,7 +349,7 @@ AutoEnterBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 2. 刪除血月 + 全亮功能
+-- 2. 刪除血月 + 全亮功能（合併FullBright功能）
 RemoveBloodMoonBtn.MouseButton1Click:Connect(function()
     local removed = false
     
@@ -341,7 +361,7 @@ RemoveBloodMoonBtn.MouseButton1Click:Connect(function()
         removed = true
     end
     
-    -- 刪除地圖黑暗
+    -- 刪除地圖黑暗（兩個可能的路徑）
     local map = Workspace:FindFirstChild("Map")
     if map then
         local mapDarkness = map:FindFirstChild("Darkness")
@@ -352,7 +372,15 @@ RemoveBloodMoonBtn.MouseButton1Click:Connect(function()
         end
     end
     
-    -- 開啟持續全亮模式
+    -- 直接刪除 workspace.Map.Darkness
+    local workspaceMapDarkness = Workspace.Map:FindFirstChild("Darkness")
+    if workspaceMapDarkness then
+        workspaceMapDarkness:Destroy()
+        print("已刪除workspace.Map.Darkness")
+        removed = true
+    end
+    
+    -- 開啟持續全亮模式（合併FullBright功能）
     if fullbrightConnection then
         fullbrightConnection:Disconnect()
         fullbrightConnection = nil
@@ -360,13 +388,15 @@ RemoveBloodMoonBtn.MouseButton1Click:Connect(function()
         RemoveBloodMoonBtn.BackgroundColor3 = Color3.fromRGB(60, 120, 200)
         print("全亮模式已關閉")
     else
-        RemoveBloodMoonBtn.Text = "關閉全亮"
         RemoveBloodMoonBtn.BackgroundColor3 = Color3.fromRGB(200, 120, 60)
         
-        -- 持續全亮
+        -- 持續全亮（結合原本的FullBright功能）
         fullbrightConnection = game:GetService("RunService").Heartbeat:Connect(function()
             -- 設置環境光照
-            Lighting.Brightness = 1
+            Lighting.Brightness = 2
+            Lighting.ClockTime = 12
+            Lighting.FogEnd = 100000
+            Lighting.GlobalShadows = false
             Lighting.Ambient = Color3.fromRGB(255, 255, 255)
             Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
             Lighting.ShadowSoftness = 1
@@ -387,11 +417,17 @@ RemoveBloodMoonBtn.MouseButton1Click:Connect(function()
                 newBloodMoon:Destroy()
             end
             
+            -- 持續檢查並刪除Darkness
             if map then
                 local newDarkness = map:FindFirstChild("Darkness")
                 if newDarkness then
                     newDarkness:Destroy()
                 end
+            end
+            
+            local newWorkspaceMapDarkness = Workspace.Map:FindFirstChild("Darkness")
+            if newWorkspaceMapDarkness then
+                newWorkspaceMapDarkness:Destroy()
             end
         end)
         
@@ -403,7 +439,7 @@ RemoveBloodMoonBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 3. 持續第三人稱功能
+-- 3. 持續第三人稱功能（改為經典模式）
 ThirdPersonBtn.MouseButton1Click:Connect(function()
     if thirdPersonConnection then
         thirdPersonConnection:Disconnect()
@@ -415,12 +451,23 @@ ThirdPersonBtn.MouseButton1Click:Connect(function()
         LocalPlayer.CameraMaxZoomDistance = 400
         LocalPlayer.CameraMinZoomDistance = 0.5
         
-        print("持續第三人稱已關閉")
+        -- 重置為默認相機模式
+        local character = LocalPlayer.Character
+        if character then
+            local camera = workspace.CurrentCamera
+            if camera then
+                camera.CameraType = Enum.CameraType.Custom
+            end
+        end
+        
+        print("第三人稱已關閉")
     else
-        ThirdPersonBtn.Text = "停止第三人稱"
         ThirdPersonBtn.BackgroundColor3 = Color3.fromRGB(200, 120, 60)
         
-        -- 立即設置第三人稱
+        -- 設置相機模式為經典
+        LocalPlayer.CameraMode = Enum.CameraMode.Classic
+        
+        -- 立即設置經典模式
         LocalPlayer.CameraMaxZoomDistance = 50
         LocalPlayer.CameraMinZoomDistance = 10
         
@@ -429,7 +476,7 @@ ThirdPersonBtn.MouseButton1Click:Connect(function()
             local camera = workspace.CurrentCamera
             if camera and character:FindFirstChild("Humanoid") then
                 camera.CameraSubject = character.Humanoid
-                camera.CameraType = Enum.CameraType.Custom
+                camera.CameraType = Enum.CameraType.Classic -- 改為經典模式
             end
         end
         
@@ -444,12 +491,12 @@ ThirdPersonBtn.MouseButton1Click:Connect(function()
                 local cam = workspace.CurrentCamera
                 if cam and char:FindFirstChild("Humanoid") then
                     cam.CameraSubject = char.Humanoid
-                    cam.CameraType = Enum.CameraType.Custom
+                    cam.CameraType = Enum.CameraType.Classic -- 持續設置為經典模式
                 end
             end
         end)
         
-        print("持續第三人稱已開啟")
+        print("第三人稱（經典模式）已開啟")
     end
 end)
 
@@ -464,7 +511,6 @@ SpeedBtn.MouseButton1Click:Connect(function()
         print("加速已關閉")
     else
         -- 開始持續加速
-        SpeedBtn.Text = "停止加速"
         SpeedBtn.BackgroundColor3 = Color3.fromRGB(200, 120, 60)
         
         speedConnection = game:GetService("RunService").Heartbeat:Connect(function()
